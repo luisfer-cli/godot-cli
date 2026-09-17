@@ -3,50 +3,111 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>godot-cli docs</title>
-  <meta name="description" content="Documentation for godot-cli, a terminal-first CLI for Godot 4 projects.">
+  <title>godot-cli documentation</title>
+  <meta name="description" content="Complete documentation for godot-cli, a terminal-first workflow for Godot 4 projects.">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <aside class="sidebar">
     <a class="brand" href="#top">godot-cli</a>
-    <nav>
+    <label class="search-label" for="search">Search docs</label>
+    <input id="search" type="search" placeholder="scene, map, export..." autocomplete="off">
+    <div id="searchResults" class="search-results" hidden></div>
+    <nav aria-label="Documentation navigation">
+      <a href="#overview">Overview</a>
+      <a href="#mental-model">Godot mental model</a>
       <a href="#install">Install</a>
-      <a href="#workflow">Workflow</a>
-      <a href="#commands">Commands</a>
-      <a href="#tui">TUI</a>
+      <a href="#first-game">First game workflow</a>
+      <a href="#project">Project settings</a>
+      <a href="#scenes-nodes">Scenes and nodes</a>
+      <a href="#scripts-signals">Scripts and signals</a>
+      <a href="#input-autoloads">Input and autoloads</a>
       <a href="#maps">ASCII maps</a>
-      <a href="#godot">Godot integration</a>
+      <a href="#tui">TUI editors</a>
+      <a href="#godot-binary">Godot binary</a>
+      <a href="#exports-tests">Exports and tests</a>
+      <a href="#lsp">Neovim + LSP</a>
+      <a href="#recipes">Recipes</a>
       <a href="#limits">Limits</a>
-      <a href="https://github.com/luisfer-cli/godot-cli">GitHub</a>
+      <a href="#reference">Command reference</a>
     </nav>
   </aside>
 
   <main id="top">
-    <header class="hero">
-      <p class="eyebrow">Documentation</p>
-      <h1>godot-cli</h1>
-      <p class="lead">A terminal-first command line tool for creating, inspecting, and editing Godot 4 projects without opening the Godot editor for repetitive work.</p>
+    <header class="hero doc-section" data-title="Overview">
+      <p class="eyebrow">Terminal-first Godot documentation</p>
+      <h1>Build Godot projects from the shell.</h1>
+      <p class="lead"><strong>godot-cli</strong> is a small CLI for creating, inspecting, editing, checking, running, and exporting Godot 4 projects without opening the Godot editor for routine work.</p>
+      <div class="callouts">
+        <a class="button" href="https://github.com/luisfer-cli/godot-cli">GitHub repository</a>
+        <a class="button ghost" href="https://github.com/luisfer-cli/godot-scene-lsp">Godot Scene LSP</a>
+      </div>
       <pre><code>gd project init MyGame
 gd scene create Main --root Node2D
-gd scene main Main
+gd node add Main Player --type CharacterBody2D
+gd script attach Main Player player.gd
 gd check --godot
 gd run</code></pre>
     </header>
 
-    <section id="install" class="doc-card">
+    <section id="overview" class="doc-card doc-section" data-title="What this tool is for">
+      <h2>What this tool is for</h2>
+      <p>Godot is excellent, but many everyday tasks are just structured text edits: creating scenes, adding nodes, wiring scripts, setting the main scene, adding input actions, creating simple maps, and running checks. <strong>godot-cli</strong> makes those tasks scriptable.</p>
+      <div class="split">
+        <div>
+          <h3>Use godot-cli for</h3>
+          <ul>
+            <li>Project bootstrap and settings.</li>
+            <li>Simple scene and node changes.</li>
+            <li>Script creation/attachment.</li>
+            <li>Input actions and autoloads.</li>
+            <li>ASCII level maps and tiny terminal UIs.</li>
+            <li>Godot headless checks, runs, tests, and exports.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Use Godot/Neovim for</h3>
+          <ul>
+            <li>Complex inspector edits.</li>
+            <li>Native TileSet/TileMap authoring.</li>
+            <li>Visual layout and animation tuning.</li>
+            <li>Deep <code>.tscn</code>/<code>.tres</code> resource editing with LSP support.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="mental-model" class="doc-card doc-section" data-title="Godot mental model scenes nodes resources scripts">
+      <h2>Godot mental model</h2>
+      <p>If you are new to Godot, learn these four ideas first. godot-cli is built around them.</p>
+      <div class="grid-2">
+        <article><h3>Scenes</h3><p>A scene is a saved tree of nodes, usually a <code>.tscn</code> file. A player, enemy, level, UI panel, or entire game screen can be a scene.</p></article>
+        <article><h3>Nodes</h3><p>Nodes are the building blocks. <code>Node2D</code>, <code>CharacterBody2D</code>, <code>Sprite2D</code>, and <code>Camera2D</code> are common 2D nodes.</p></article>
+        <article><h3>Resources</h3><p>Resources are data assets: scripts, textures, scenes, audio, materials, shapes, and custom data. Godot paths usually look like <code>res://player.gd</code>.</p></article>
+        <article><h3>Scripts</h3><p>GDScript files attach behavior to nodes. A script typically starts with <code>extends CharacterBody2D</code> or another Godot class.</p></article>
+      </div>
+      <p>In the editor, you manipulate these visually. In godot-cli, you manipulate the same files with commands.</p>
+    </section>
+
+    <section id="install" class="doc-card doc-section" data-title="Install setup PATH make install">
       <h2>Install</h2>
       <pre><code>git clone https://github.com/luisfer-cli/godot-cli.git
 cd godot-cli
 make install</code></pre>
-      <p>The installer creates <code>~/.local/bin/gd</code>. Make sure <code>~/.local/bin</code> is in your <code>PATH</code>.</p>
+      <p>The installer creates <code>~/.local/bin/gd</code> and installs the Python package files under <code>~/.local/lib/godot-cli</code>.</p>
+      <p>Add this to your shell config if needed:</p>
+      <pre><code>export PATH="$HOME/.local/bin:$PATH"</code></pre>
+      <h3>Check the install</h3>
+      <pre><code>gd self-test</code></pre>
     </section>
 
-    <section id="workflow" class="doc-card">
-      <h2>Typical workflow</h2>
+    <section id="first-game" class="doc-card doc-section" data-title="First game workflow create project scene player script input map run">
+      <h2>First game workflow</h2>
+      <p>This creates a tiny Godot project with a main scene, player node, player script, jump input, and a compiled level scene.</p>
       <pre><code>mkdir MyGame && cd MyGame
 
 gd project init MyGame
+
 gd scene create Main --root Node2D
 gd scene main Main
 
@@ -55,85 +116,72 @@ gd script create player.gd --extends CharacterBody2D
 gd script attach Main Player player.gd
 
 gd input add jump Space
-gd map new Level1 32 18
+
+gd map new Level1 24 14
 gd map edit Level1
 gd map compile Level1 LevelScene
 
 gd check --godot
 gd run</code></pre>
+      <p>After this, open <code>player.gd</code> in your editor and write movement code. Use the <a href="#lsp">Godot Scene LSP</a> for completions and project-aware paths.</p>
     </section>
 
-    <section id="commands" class="doc-card">
-      <h2>Command reference</h2>
-      <div class="command-grid">
-        <article>
-          <h3>Project</h3>
-          <pre><code>gd project init &lt;name&gt;
+    <section id="project" class="doc-card doc-section" data-title="Project settings project.godot main scene">
+      <h2>Project settings</h2>
+      <p><code>project.godot</code> is an INI-like file. godot-cli can initialize it and edit simple settings.</p>
+      <pre><code>gd project init MyGame
 gd project info
-gd project setting get &lt;section/key&gt;
-gd project setting set &lt;section/key&gt; &lt;value&gt;</code></pre>
-        </article>
-        <article>
-          <h3>Scenes</h3>
-          <pre><code>gd scene create &lt;path&gt; [--root Node2D]
-gd scene list
-gd scene main &lt;scene&gt;
-gd scene edit &lt;scene&gt;</code></pre>
-        </article>
-        <article>
-          <h3>Nodes</h3>
-          <pre><code>gd node add &lt;scene&gt; &lt;name&gt; [--type Node2D]
-gd node list &lt;scene&gt;
-gd node get &lt;scene&gt; &lt;node&gt; &lt;property&gt;
-gd node set &lt;scene&gt; &lt;node&gt; &lt;property&gt; &lt;value&gt;
-gd node duplicate &lt;scene&gt; &lt;node&gt; &lt;new_name&gt;
-gd node rename &lt;scene&gt; &lt;node&gt; &lt;new_name&gt;
-gd node remove &lt;scene&gt; &lt;node&gt;</code></pre>
-        </article>
-        <article>
-          <h3>Scripts and signals</h3>
-          <pre><code>gd script create &lt;path&gt; [--extends Node]
-gd script attach &lt;scene&gt; &lt;node&gt; &lt;script&gt;
-gd script list
-gd signal connect &lt;scene&gt; &lt;signal&gt; &lt;from&gt; &lt;to&gt; &lt;method&gt;</code></pre>
-        </article>
-        <article>
-          <h3>Input and autoloads</h3>
-          <pre><code>gd input add &lt;action&gt; &lt;key&gt;
+gd scene main Main
+gd project setting set display/window/size/viewport_width 1280
+gd project setting set display/window/size/viewport_height 720
+gd project setting get display/window/size/viewport_width</code></pre>
+      <p><code>scene main</code> writes <code>application/run/main_scene</code>, which tells Godot what to run by default.</p>
+    </section>
+
+    <section id="scenes-nodes" class="doc-card doc-section" data-title="Scenes nodes tree properties tscn">
+      <h2>Scenes and nodes</h2>
+      <p>Scenes are stored as <code>.tscn</code> files. godot-cli edits them conservatively: it changes the lines it understands and preserves unknown blocks.</p>
+      <pre><code>gd scene create Main --root Node2D
+gd node add Main Player --type CharacterBody2D
+gd node add Main Sprite --type Sprite2D --parent Player
+gd node set Main Player position "Vector2(100, 200)"
+gd node get Main Player position
+gd node duplicate Main Player Enemy
+gd node rename Main Enemy Slime
+gd node remove Main Slime
+gd tree Main</code></pre>
+      <h3>Tip: node paths</h3>
+      <p>Most node commands accept a node name or path, like <code>Player</code> or <code>Player/Sprite</code>.</p>
+    </section>
+
+    <section id="scripts-signals" class="doc-card doc-section" data-title="Scripts signals GDScript attach connect">
+      <h2>Scripts and signals</h2>
+      <pre><code>gd script create player.gd --extends CharacterBody2D
+gd script attach Main Player player.gd
+gd signal connect Main ready Player Player _on_ready
+gd script list</code></pre>
+      <p>Script attachment adds an external script resource to the scene and writes <code>script = ExtResource(...)</code> on the selected node.</p>
+      <p>Signals are appended as Godot connection entries. For complex signal workflows, use Godot or edit with LSP support.</p>
+    </section>
+
+    <section id="input-autoloads" class="doc-card doc-section" data-title="Input actions autoload singletons">
+      <h2>Input actions and autoloads</h2>
+      <p>Input actions live in <code>project.godot</code> and let scripts ask for semantic actions instead of raw keys.</p>
+      <pre><code>gd input add move_left A
+gd input add move_right D
+gd input add jump Space
 gd input list
-gd input remove &lt;action&gt;
-gd autoload add &lt;name&gt; &lt;script&gt;
+gd input remove jump</code></pre>
+      <p>Autoloads are globally available singleton scripts.</p>
+      <pre><code>gd script create game_state.gd --extends Node
+gd autoload add GameState game_state.gd
 gd autoload list
-gd autoload remove &lt;name&gt;</code></pre>
-        </article>
-        <article>
-          <h3>Run, check, test, export</h3>
-          <pre><code>gd check [--godot [godot]]
-gd test
-gd export list
-gd export run &lt;preset&gt; [output]
-gd run [--godot godot]</code></pre>
-        </article>
-      </div>
+gd autoload remove GameState</code></pre>
     </section>
 
-    <section id="tui" class="doc-card">
-      <h2>TUI editors</h2>
-      <h3>Scene browser</h3>
-      <pre><code>gd scene edit Main</code></pre>
-      <table>
-        <tr><th>Key</th><th>Action</th></tr>
-        <tr><td><code>j/k</code></td><td>Move through the node tree</td></tr>
-        <tr><td><code>/</code></td><td>Search node path</td></tr>
-        <tr><td><code>?</code></td><td>Help</td></tr>
-        <tr><td><code>:w</code>, <code>:q</code>, <code>:wq</code></td><td>Write/quit commands</td></tr>
-      </table>
-      <p>Use <code>gd node set</code> or Neovim with your <code>.tscn</code> LSP for deeper property editing.</p>
-    </section>
-
-    <section id="maps" class="doc-card">
+    <section id="maps" class="doc-card doc-section" data-title="ASCII maps levels map edit compile legend tile size">
       <h2>ASCII maps</h2>
-      <p><code>levels/*.map</code> files are plain grids. <code>.</code> is empty; every other character becomes a placeholder node when compiled.</p>
+      <p>ASCII maps are the fastest terminal-first way to block out 2D levels. A dot (<code>.</code>) is empty; every other character becomes a node when compiled.</p>
       <pre><code>P#.
 ..#</code></pre>
       <pre><code>gd map new Level1 16 9
@@ -141,41 +189,176 @@ gd map check Level1
 gd map edit Level1
 gd map compile Level1 LevelScene --tile-size 16</code></pre>
       <h3>Legend</h3>
-      <p>Optional <code>levels/map.legend</code> maps characters to node types:</p>
+      <p>Create <code>levels/map.legend</code> to map characters to Godot node types:</p>
       <pre><code>[legend]
 #=StaticBody2D
-P=CharacterBody2D</code></pre>
-      <h3>Map editor keys</h3>
-      <table>
-        <tr><th>Key</th><th>Action</th></tr>
-        <tr><td><code>h/j/k/l</code></td><td>Move cursor</td></tr>
-        <tr><td>printable key</td><td>Select tile</td></tr>
-        <tr><td><code>p</code> or space</td><td>Paint selected tile</td></tr>
-        <tr><td><code>u</code></td><td>Undo</td></tr>
-        <tr><td><code>:w</code>, <code>:q</code>, <code>:wq</code></td><td>Write/quit commands</td></tr>
-      </table>
+P=CharacterBody2D
+C=Camera2D</code></pre>
+      <h3>Why not native TileMap yet?</h3>
+      <p>Native TileMap editing needs real TileSet/atlas metadata. godot-cli intentionally avoids inventing a partial TileMap editor. Use ASCII maps for layout, then move to Godot/Neovim when you need full tileset details.</p>
     </section>
 
-    <section id="godot" class="doc-card">
-      <h2>Godot integration</h2>
-      <p><code>gd run</code>, <code>gd check --godot</code>, and <code>gd export run</code> call the real Godot binary. Use <code>--godot /path/to/godot</code> if it is not named <code>godot</code>.</p>
+    <section id="tui" class="doc-card doc-section" data-title="TUI vim bindings scene edit map edit curses">
+      <h2>TUI editors</h2>
+      <div class="split">
+        <div>
+          <h3>Scene browser</h3>
+          <pre><code>gd scene edit Main</code></pre>
+          <table><tr><th>Key</th><th>Action</th></tr><tr><td><code>j/k</code></td><td>Move</td></tr><tr><td><code>/</code></td><td>Search node path</td></tr><tr><td><code>?</code></td><td>Help</td></tr><tr><td><code>:w :q :wq</code></td><td>Write/quit</td></tr></table>
+        </div>
+        <div>
+          <h3>Map editor</h3>
+          <pre><code>gd map edit Level1</code></pre>
+          <table><tr><th>Key</th><th>Action</th></tr><tr><td><code>h/j/k/l</code></td><td>Move cursor</td></tr><tr><td>printable key</td><td>Select tile</td></tr><tr><td><code>p</code> / space</td><td>Paint</td></tr><tr><td><code>u</code></td><td>Undo</td></tr><tr><td><code>:w :q :wq</code></td><td>Write/quit</td></tr></table>
+        </div>
+      </div>
+    </section>
+
+    <section id="godot-binary" class="doc-card doc-section" data-title="Godot binary run check headless path">
+      <h2>Godot binary integration</h2>
+      <p>godot-cli does not replace the engine. It calls the real Godot binary for running, checking, and exporting.</p>
       <pre><code>gd check --godot
-gd run --godot /opt/Godot_v4/godot
+gd run
+gd run --godot /opt/Godot_v4/godot</code></pre>
+      <p>If <code>godot</code> is not installed in <code>PATH</code>, pass <code>--godot</code> with the binary path.</p>
+    </section>
+
+    <section id="exports-tests" class="doc-card doc-section" data-title="Export presets tests headless CI">
+      <h2>Exports and tests</h2>
+      <p>Export presets are read from <code>export_presets.cfg</code>.</p>
+      <pre><code>gd export list
 gd export run Linux build/game.x86_64</code></pre>
-      <p>For tests, configure a command in <code>project.godot</code>:</p>
+      <p>For project tests, configure a command in <code>project.godot</code>:</p>
       <pre><code>[gd]
 test_command=godot --headless --path . --script res://test_runner.gd</code></pre>
+      <pre><code>gd test</code></pre>
     </section>
 
-    <section id="limits" class="doc-card warning">
+    <section id="lsp" class="doc-card doc-section" data-title="Neovim LSP godot-scene-lsp completions tscn gdscript">
+      <h2>Neovim + Godot Scene LSP</h2>
+      <p>For serious text editing, pair this CLI with <a href="https://github.com/luisfer-cli/godot-scene-lsp"><strong>godot-scene-lsp</strong></a>, the companion LSP server.</p>
+      <p>The LSP focuses on working with scenes, nodes, and resources without opening Godot. It provides:</p>
+      <ul>
+        <li>Scene <code>.tscn</code> completions.</li>
+        <li>Node path completions like <code>Player/Sprite</code>.</li>
+        <li><code>res://...</code> resource completions for scripts, scenes, textures, audio, and project files.</li>
+        <li>Godot class, keyword, callback, and project symbol completions.</li>
+        <li>Document symbols, definitions, references, hover, and simple diagnostics.</li>
+      </ul>
+      <h3>Neovim example</h3>
+      <pre><code>vim.lsp.start({
+  name = 'godot-scene-lsp',
+  cmd = { 'godot-scene-lsp', '--stdio' },
+  root_dir = vim.fs.root(0, { 'project.godot', '.git' }),
+})</code></pre>
+      <p>Recommended workflow: use godot-cli for repeatable operations, use Neovim + LSP for rich text editing, and use Godot only for visual/engine-specific work.</p>
+    </section>
+
+    <section id="recipes" class="doc-card doc-section" data-title="Recipes examples common tasks">
+      <h2>Recipes</h2>
+      <h3>Create a player scene</h3>
+      <pre><code>gd scene create Player --root CharacterBody2D
+gd node add Player Sprite --type Sprite2D
+gd node add Player Collision --type CollisionShape2D
+gd script create player.gd --extends CharacterBody2D
+gd script attach Player Player player.gd</code></pre>
+      <h3>Create UI root</h3>
+      <pre><code>gd scene create UI --root Control
+gd node add UI Menu --type VBoxContainer
+gd node add UI StartButton --type Button --parent Menu
+gd node set UI Menu anchors_preset 8</code></pre>
+      <h3>Prepare export</h3>
+      <pre><code>gd check --godot
+gd export list
+gd export run Linux dist/my-game.x86_64</code></pre>
+    </section>
+
+    <section id="limits" class="doc-card warning doc-section" data-title="Known limits limitations tilemap parser windows curses">
       <h2>Known limits</h2>
       <ul>
         <li><code>.tscn</code> support is conservative and line-preserving, not a full Godot resource parser.</li>
         <li>Native TileMap/TileSet editing is not implemented; use ASCII maps or Neovim/Godot for full tileset metadata.</li>
-        <li>The curses TUIs are intentionally small. They are helpers, not an editor clone.</li>
+        <li>The curses TUIs are intentionally small helpers, not full editor replacements.</li>
         <li>Input mapping supports basic keys first.</li>
+        <li>On Windows, curses may require a compatible terminal environment.</li>
       </ul>
     </section>
+
+    <section id="reference" class="doc-card doc-section" data-title="Full command reference all commands">
+      <h2>Full command reference</h2>
+      <pre><code>gd project init &lt;name&gt;
+gd project info
+gd project setting get &lt;section/key&gt;
+gd project setting set &lt;section/key&gt; &lt;value&gt;
+
+gd scene create &lt;path&gt; [--root Node2D]
+gd scene list
+gd scene main &lt;scene&gt;
+gd scene edit &lt;scene&gt;
+
+gd node add &lt;scene&gt; &lt;name&gt; [--type Node2D] [--parent .]
+gd node list &lt;scene&gt;
+gd node get &lt;scene&gt; &lt;node&gt; &lt;property&gt;
+gd node set &lt;scene&gt; &lt;node&gt; &lt;property&gt; &lt;value&gt;
+gd node duplicate &lt;scene&gt; &lt;node&gt; &lt;new_name&gt;
+gd node rename &lt;scene&gt; &lt;node&gt; &lt;new_name&gt;
+gd node remove &lt;scene&gt; &lt;node&gt;
+
+gd script create &lt;path&gt; [--extends Node]
+gd script attach &lt;scene&gt; &lt;node&gt; &lt;script&gt;
+gd script list
+
+gd signal connect &lt;scene&gt; &lt;signal&gt; &lt;from_node&gt; &lt;to_node&gt; &lt;method&gt;
+
+gd input add &lt;action&gt; &lt;key&gt;
+gd input list
+gd input remove &lt;action&gt;
+
+gd autoload add &lt;name&gt; &lt;script&gt;
+gd autoload list
+gd autoload remove &lt;name&gt;
+
+gd map new &lt;path&gt; &lt;width&gt; &lt;height&gt; [--fill .] [--force]
+gd map list
+gd map check &lt;path&gt;
+gd map edit &lt;path&gt;
+gd map compile &lt;map&gt; &lt;scene&gt; [--tile-size 16]
+
+gd tilemap edit &lt;scene&gt; &lt;node&gt;
+gd tree &lt;scene&gt;
+gd check [--godot [godot]]
+gd test
+gd export list
+gd export run &lt;preset&gt; [output] [--godot godot]
+gd run [--godot godot]
+gd self-test</code></pre>
+    </section>
   </main>
+
+  <script>
+    const input = document.querySelector('#search');
+    const results = document.querySelector('#searchResults');
+    const sections = [...document.querySelectorAll('.doc-section')].map(section => ({
+      id: section.id || 'top',
+      title: section.dataset.title || section.querySelector('h1,h2')?.textContent || 'Section',
+      text: section.textContent.toLowerCase()
+    }));
+
+    input.addEventListener('input', () => {
+      const q = input.value.trim().toLowerCase();
+      results.innerHTML = '';
+      if (!q) { results.hidden = true; return; }
+      const hits = sections.filter(s => s.text.includes(q) || s.title.toLowerCase().includes(q)).slice(0, 8);
+      for (const hit of hits) {
+        const a = document.createElement('a');
+        a.href = '#' + hit.id;
+        a.textContent = hit.title.replace(/\s+/g, ' ');
+        a.addEventListener('click', () => { results.hidden = true; input.value = ''; });
+        results.appendChild(a);
+      }
+      if (!hits.length) results.innerHTML = '<p>No results</p>';
+      results.hidden = false;
+    });
+  </script>
 </body>
 </html>
