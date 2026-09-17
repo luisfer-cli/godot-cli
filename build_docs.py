@@ -67,11 +67,13 @@ gd run</code></pre>
 <p class='lead'>Commands are intentionally boring and scriptable.</p>
 <h2>Project</h2><pre><code>gd project init &lt;name&gt;
 gd project info
+gd project scaffold
 gd project setting get &lt;section/key&gt;
 gd project setting set &lt;section/key&gt; &lt;value&gt;</code></pre>
 <h2>Scenes</h2><pre><code>gd scene create &lt;path&gt; [--root Node2D]
 gd scene list
 gd scene main &lt;scene&gt;
+gd scene instance &lt;scene&gt; &lt;name&gt; &lt;packed.tscn&gt; [--parent .]
 gd scene edit &lt;scene&gt;</code></pre>
 <h2>Nodes</h2><pre><code>gd node add &lt;scene&gt; &lt;name&gt; [--type Node2D] [--parent .]
 gd node list &lt;scene&gt;
@@ -80,16 +82,28 @@ gd node set &lt;scene&gt; &lt;node&gt; &lt;property&gt; &lt;value&gt;
 gd node duplicate &lt;scene&gt; &lt;node&gt; &lt;new_name&gt;
 gd node rename &lt;scene&gt; &lt;node&gt; &lt;new_name&gt;
 gd node remove &lt;scene&gt; &lt;node&gt;</code></pre>
-<h2>Scripts and signals</h2><pre><code>gd script create &lt;path&gt; [--extends Node]
+<h2>Scripts and signals</h2><pre><code>gd script create &lt;path&gt; [--extends Node] [--template platformer2d]
 gd script attach &lt;scene&gt; &lt;node&gt; &lt;script&gt;
 gd script list
-gd signal connect &lt;scene&gt; &lt;signal&gt; &lt;from_node&gt; &lt;to_node&gt; &lt;method&gt;</code></pre>
+gd signal connect &lt;scene&gt; &lt;signal&gt; &lt;from_node&gt; &lt;to_node&gt; &lt;method&gt;
+gd signal list &lt;scene&gt;</code></pre>
+<h2>Spritesheets and assets</h2><pre><code>gd spriteframes from-sheet &lt;scene&gt; &lt;node&gt; &lt;image&gt; --anim &lt;name&gt; --frame WxH --count N [--fps N] [--columns N] [--offset X,Y] [--out file.tres]
+gd asset list
+gd asset check</code></pre>
+<h2>Gameplay builders</h2><pre><code>gd collision add &lt;scene&gt; &lt;node&gt; rectangle|circle|capsule &lt;size&gt;
+gd camera add &lt;scene&gt; &lt;name&gt; [--parent .] [--current] [--zoom N]
+gd audio add &lt;scene&gt; &lt;name&gt; &lt;file&gt; [--parent .]
+gd group add|list|remove &lt;scene&gt; [node] [group]</code></pre>
 <h2>Input and autoloads</h2><pre><code>gd input add &lt;action&gt; &lt;key&gt;
+gd input preset platformer|topdown
 gd input list
 gd input remove &lt;action&gt;
 gd autoload add &lt;name&gt; &lt;script&gt;
 gd autoload list
 gd autoload remove &lt;name&gt;</code></pre>
+<h2>Templates, doctor, docs</h2><pre><code>gd template platformer|topdown|menu
+gd doctor
+gd docs &lt;GodotClass&gt; [--open]</code></pre>
 <h2>Run, check, test, export</h2><pre><code>gd check [--godot [godot]]
 gd test
 gd export list
@@ -156,6 +170,45 @@ make install</code></pre>
 })</code></pre>
 <h2>Recommended workflow</h2><p>Use godot-cli for repeatable structural changes. Use Neovim + godot-scene-lsp for writing scripts and editing scenes/resources. Use Godot for visual authoring when the terminal stops being the fastest tool.</p>
 """),
+    "gameplay.html": ("Gameplay commands", """
+<h1>Gameplay commands</h1>
+<p class='lead'>High-value scene building blocks without opening the editor.</p>
+<h2>Instance a scene</h2><pre><code>gd scene instance Main Mob enemy.tscn --parent Enemies</code></pre>
+<p>Adds a <code>PackedScene</code> external resource and a node with <code>instance=ExtResource(...)</code>.</p>
+<h2>Collisions</h2><pre><code>gd collision add Main Player rectangle 16x24
+# circle: radius, capsule: radius,height
+gd collision add Main Aura circle 32</code></pre>
+<p>Creates the <code>RectangleShape2D</code>/<code>CircleShape2D</code>/<code>CapsuleShape2D</code> sub-resource and a <code>CollisionShape2D</code> child node. Polygons stay in Neovim/Godot.</p>
+<h2>Camera and audio</h2><pre><code>gd camera add Main Camera --parent Player --current --zoom 2
+gd audio add Main Jump assets/jump.wav --parent Player</code></pre>
+<h2>Groups and signals</h2><pre><code>gd group add Main Player enemies
+gd group list Main
+gd group remove Main Player enemies
+gd signal connect Main body_entered Area Body _hit
+gd signal list Main</code></pre>
+<h2>Spritesheets</h2><pre><code>gd node add Main PlayerAnim --type AnimatedSprite2D --parent Player
+gd spriteframes from-sheet Main PlayerAnim assets/player.png \
+  --anim walk --frame 16x16 --count 6 --fps 10 --columns 3 --offset 0,0</code></pre>
+<p>Generates a <code>SpriteFrames</code> <code>.tres</code> with one <code>AtlasTexture</code> per frame and assigns it to the node. Then play from script:</p>
+<pre><code>$PlayerAnim.play("walk")</code></pre>
+<h2>Assets</h2><pre><code>gd asset list
+gd asset check</code></pre><p>Finds every <code>res://</code> reference in <code>.tscn</code>/<code>.tres</code>/<code>.gd</code>/<code>project.godot</code> and reports broken ones.</p>
+"""),
+    "productivity.html": ("Templates & doctor", """
+<h1>Templates, presets and doctor</h1>
+<h2>Minimal playable game</h2><pre><code>mkdir MyGame && cd MyGame
+gd template platformer
+gd run</code></pre>
+<p><code>platformer</code>, <code>topdown</code> and <code>menu</code> generate a small playable project: main scene, player with collision+camera, starter script, input actions and folder scaffold. Everything stays plain files you can edit.</p>
+<h2>Script templates</h2><pre><code>gd script create player.gd --template platformer2d
+gd script create game_state.gd --template autoload-state</code></pre>
+<h2>Input presets</h2><pre><code>gd input preset platformer   # move_left A, move_right D, jump Space
+gd input preset topdown      # WASD</code></pre>
+<h2>Scaffold</h2><pre><code>gd project scaffold</code></pre><p>Creates <code>scenes/ scripts/ assets/ levels/</code>.</p>
+<h2>Doctor</h2><pre><code>gd doctor</code></pre><p>Checks <code>project.godot</code>, Godot in <code>PATH</code>, main scene, missing <code>res://</code> resources, export presets, and reminds you about <a href='godot-lsp.html'>Godot Scene LSP</a>. Exit code 1 when something is broken.</p>
+<h2>Docs lookup</h2><pre><code>gd docs CharacterBody2D
+gd docs AnimatedSprite2D --open</code></pre><p>Prints (or opens) the official Godot class docs URL.</p>
+"""),
     "recipes.html": ("Recipes", """
 <h1>Recipes</h1>
 <h2>Create a player scene</h2><pre><code>gd scene create Player --root CharacterBody2D
@@ -173,7 +226,7 @@ gd export run Linux dist/my-game.x86_64</code></pre>
 """),
     "limits.html": ("Known limits", """
 <h1>Known limits</h1>
-<ul><li><code>.tscn</code> support is conservative and line-preserving, not a full Godot resource parser.</li><li>Native TileMap/TileSet editing is not implemented; use ASCII maps or Neovim/Godot for full tileset metadata.</li><li>The curses TUIs are intentionally small helpers.</li><li>Input mapping supports basic keys first.</li><li>On Windows, curses may require a compatible terminal environment.</li></ul>
+<ul><li><code>.tscn</code> support is conservative and line-preserving, not a full Godot resource parser.</li><li>Native TileMap/TileSet editing is not implemented; use ASCII maps or Neovim/Godot for full tileset metadata.</li><li><code>spriteframes from-sheet</code> writes one animation per generated <code>.tres</code>; merge more in Neovim/Godot.</li><li><code>collision add</code> covers rectangle/circle/capsule; polygon shapes stay in the editor.</li><li>The curses TUIs are intentionally small helpers.</li><li>Input mapping supports basic keys first.</li><li>On Windows, curses may require a compatible terminal environment.</li></ul>
 <h2>Design rule</h2><p>godot-cli should stay boring and scriptable. If a feature starts becoming a clone of Godot's editor, it probably belongs in Godot or the LSP instead.</p>
 """),
 }
@@ -182,6 +235,7 @@ nav = [
     ("index.html", "Introduction"), ("getting-started.html", "Getting started"), ("concepts.html", "Godot concepts"),
     ("commands.html", "Command reference"), ("maps.html", "ASCII maps"), ("tui.html", "TUI editors"),
     ("godot-integration.html", "Godot integration"), ("godot-lsp.html", "Godot Scene LSP"),
+    ("gameplay.html", "Gameplay commands"), ("productivity.html", "Templates & doctor"),
     ("recipes.html", "Recipes"), ("limits.html", "Known limits"),
 ]
 
