@@ -8,13 +8,13 @@ ARCHIVE := $(DIST)/godot-cli-$(VERSION).tar.gz
 
 help:
 	@printf '%s\n' \
-	  'make test       - corre unittest + self-test' \
-	  'make check      - compila y corre tests' \
-	  'make smoke      - prueba el CLI en un proyecto temporal' \
-	  'make export     - genera $(ARCHIVE)' \
-	  'make install    - instala como $(PREFIX)/bin/$(BIN)' \
-	  'make uninstall  - borra $(PREFIX)/bin/$(BIN)' \
-	  'make clean      - borra caches y dist'
+	  'make test       - run unittest + self-test' \
+	  'make check      - compile and run tests' \
+	  'make smoke      - test the CLI in a temporary project' \
+	  'make export     - create $(ARCHIVE)' \
+	  'make install    - install as $(PREFIX)/bin/$(BIN)' \
+	  'make uninstall  - remove $(PREFIX)/bin/$(BIN)' \
+	  'make clean      - remove caches and dist'
 
 test:
 	python3 -m unittest -v
@@ -32,12 +32,12 @@ smoke:
 export: check
 	mkdir -p $(DIST)
 	tar --exclude='$(DIST)' --exclude='__pycache__' --exclude='.pytest_cache' --exclude='.ruff_cache' -czf $(ARCHIVE) gd.py README.md Makefile test_gd.py .gitignore
-	@printf 'exportado: %s\n' '$(ARCHIVE)'
+	@printf 'exported: %s\n' '$(ARCHIVE)'
 
 install:
 	install -d $(PREFIX)/bin
 	install -m 755 gd.py $(PREFIX)/bin/$(BIN)
-	@printf 'instalado: %s\n' '$(PREFIX)/bin/$(BIN)'
+	@printf 'installed: %s\n' '$(PREFIX)/bin/$(BIN)'
 
 uninstall:
 	rm -f $(PREFIX)/bin/$(BIN)
