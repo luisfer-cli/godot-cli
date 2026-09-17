@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>godot-cli</title>
+  <meta name="description" content="Terminal-first CLI for creating, inspecting, and editing Godot 4 projects.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="hero">
+    <nav>
+      <a class="brand" href="#">godot-cli</a>
+      <div>
+        <a href="#workflow">Workflow</a>
+        <a href="#commands">Commands</a>
+        <a href="https://github.com/luisfer-cli/godot-cli">GitHub</a>
+      </div>
+    </nav>
+    <section class="hero-grid">
+      <div>
+        <p class="eyebrow">Godot 4 · terminal-first · no editor required for routine work</p>
+        <h1>Build Godot projects from your shell.</h1>
+        <p class="lead">Create scenes, nodes, scripts, inputs, autoloads, ASCII maps, exports, and tiny Vim-ish TUIs without opening the Godot editor for repetitive tasks.</p>
+        <div class="actions">
+          <a class="button" href="https://github.com/luisfer-cli/godot-cli">Get the CLI</a>
+          <a class="button ghost" href="#quickstart">Quickstart</a>
+        </div>
+      </div>
+      <pre class="terminal"><code>$ gd project init MyGame
+$ gd scene create Main --root Node2D
+$ gd node add Main Player --type CharacterBody2D
+$ gd script attach Main Player player.gd
+$ gd map edit Level1
+$ gd check --godot
+$ gd run</code></pre>
+    </section>
+  </header>
+
+  <main>
+    <section id="quickstart" class="card wide">
+      <h2>Quickstart</h2>
+      <pre><code>git clone https://github.com/luisfer-cli/godot-cli.git
+cd godot-cli
+make install
+
+mkdir MyGame && cd MyGame
+gd project init MyGame
+gd scene create Main --root Node2D
+gd scene main Main
+gd run</code></pre>
+    </section>
+
+    <section id="workflow" class="grid">
+      <article class="card">
+        <h3>Scriptable scenes</h3>
+        <p>Add, rename, remove, duplicate, inspect, and edit node properties from deterministic CLI commands.</p>
+      </article>
+      <article class="card">
+        <h3>Vim-ish TUIs</h3>
+        <p>Use <code>gd scene edit</code> and <code>gd map edit</code> for tree browsing and ASCII level editing with familiar movement keys.</p>
+      </article>
+      <article class="card">
+        <h3>Godot when needed</h3>
+        <p>Run <code>gd check --godot</code>, <code>gd run</code>, and exports through the real Godot binary.</p>
+      </article>
+    </section>
+
+    <section class="card wide">
+      <h2>ASCII maps</h2>
+      <p>Edit simple levels as plain text, then compile them to placeholder scene nodes.</p>
+      <pre><code>P#.
+..#</code></pre>
+      <pre><code>gd map new Level1 32 18
+gd map edit Level1
+gd map compile Level1 LevelScene --tile-size 16</code></pre>
+    </section>
+
+    <section id="commands" class="card wide">
+      <h2>Command groups</h2>
+      <ul class="commands">
+        <li><strong>project</strong> init, info, setting get/set</li>
+        <li><strong>scene</strong> create, list, main, edit</li>
+        <li><strong>node</strong> add, list, get, set, duplicate, rename, remove</li>
+        <li><strong>script</strong> create, attach, list</li>
+        <li><strong>map</strong> new, list, check, edit, compile</li>
+        <li><strong>run/check/test/export</strong> integrate with Godot headless and presets</li>
+      </ul>
+    </section>
+
+    <section class="note">
+      <h2>Not a Godot editor clone</h2>
+      <p>Complex <code>.tscn</code>, <code>.tres</code>, TileSet, and native TileMap work should stay in Neovim with your Godot LSP or in Godot itself. This tool focuses on the boring 80% that should be fast and scriptable.</p>
+    </section>
+  </main>
+
+  <footer>
+    <span>Made for Godot terminal workflows.</span>
+    <a href="https://github.com/luisfer-cli/godot-cli">github.com/luisfer-cli/godot-cli</a>
+  </footer>
+</body>
+</html>
