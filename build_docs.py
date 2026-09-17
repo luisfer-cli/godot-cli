@@ -74,6 +74,7 @@ gd project setting set &lt;section/key&gt; &lt;value&gt;</code></pre>
 gd scene list
 gd scene main &lt;scene&gt;
 gd scene instance &lt;scene&gt; &lt;name&gt; &lt;packed.tscn&gt; [--parent .]
+gd scene grep &lt;pattern&gt;
 gd scene edit &lt;scene&gt;</code></pre>
 <h2>Nodes</h2><pre><code>gd node add &lt;scene&gt; &lt;name&gt; [--type Node2D] [--parent .]
 gd node list &lt;scene&gt;
@@ -81,13 +82,15 @@ gd node get &lt;scene&gt; &lt;node&gt; &lt;property&gt;
 gd node set &lt;scene&gt; &lt;node&gt; &lt;property&gt; &lt;value&gt;
 gd node duplicate &lt;scene&gt; &lt;node&gt; &lt;new_name&gt;
 gd node rename &lt;scene&gt; &lt;node&gt; &lt;new_name&gt;
+gd node move &lt;scene&gt; &lt;node&gt; &lt;new_parent&gt;
+gd node find &lt;scene&gt; [--type T]
 gd node remove &lt;scene&gt; &lt;node&gt;</code></pre>
 <h2>Scripts and signals</h2><pre><code>gd script create &lt;path&gt; [--extends Node] [--template platformer2d]
 gd script attach &lt;scene&gt; &lt;node&gt; &lt;script&gt;
 gd script list
 gd signal connect &lt;scene&gt; &lt;signal&gt; &lt;from_node&gt; &lt;to_node&gt; &lt;method&gt;
 gd signal list &lt;scene&gt;</code></pre>
-<h2>Spritesheets and assets</h2><pre><code>gd spriteframes from-sheet &lt;scene&gt; &lt;node&gt; &lt;image&gt; --anim &lt;name&gt; --frame WxH --count N [--fps N] [--columns N] [--offset X,Y] [--out file.tres]
+<h2>Spritesheets and assets</h2><pre><code>gd spriteframes from-sheet &lt;scene&gt; &lt;node&gt; &lt;image&gt; --anim &lt;name&gt; --frame WxH --count N|auto [--fps N] [--columns N] [--offset X,Y] [--out file.tres] [--append]
 gd asset list
 gd asset check</code></pre>
 <h2>Gameplay builders</h2><pre><code>gd collision add &lt;scene&gt; &lt;node&gt; rectangle|circle|capsule &lt;size&gt;
@@ -188,9 +191,14 @@ gd signal connect Main body_entered Area Body _hit
 gd signal list Main</code></pre>
 <h2>Spritesheets</h2><pre><code>gd node add Main PlayerAnim --type AnimatedSprite2D --parent Player
 gd spriteframes from-sheet Main PlayerAnim assets/player.png \
-  --anim walk --frame 16x16 --count 6 --fps 10 --columns 3 --offset 0,0</code></pre>
-<p>Generates a <code>SpriteFrames</code> <code>.tres</code> with one <code>AtlasTexture</code> per frame and assigns it to the node. Then play from script:</p>
+  --anim walk --frame 16x16 --count auto
+gd spriteframes from-sheet Main PlayerAnim assets/player.png \
+  --anim idle --frame 16x16 --count 4 --append</code></pre>
+<p>Generates a <code>SpriteFrames</code> <code>.tres</code> with one <code>AtlasTexture</code> per frame and assigns it to the node. <code>--count auto</code> derives rows×columns from the real PNG size (clip warning if leftover pixels); <code>--append</code> adds a second animation to the same resource without id collisions. Then play from script:</p>
 <pre><code>$PlayerAnim.play("walk")</code></pre>
+<h2>Reorganizing scenes</h2><pre><code>gd node move Main Player HUD          # reparent (descendants + connections follow)
+gd node find Main --type Sprite2D
+gd scene grep position                 # escena:nodo:linea across all .tscn</code></pre>
 <h2>Assets</h2><pre><code>gd asset list
 gd asset check</code></pre><p>Finds every <code>res://</code> reference in <code>.tscn</code>/<code>.tres</code>/<code>.gd</code>/<code>project.godot</code> and reports broken ones.</p>
 """),
@@ -226,7 +234,7 @@ gd export run Linux dist/my-game.x86_64</code></pre>
 """),
     "limits.html": ("Known limits", """
 <h1>Known limits</h1>
-<ul><li><code>.tscn</code> support is conservative and line-preserving, not a full Godot resource parser.</li><li>Native TileMap/TileSet editing is not implemented; use ASCII maps or Neovim/Godot for full tileset metadata.</li><li><code>spriteframes from-sheet</code> writes one animation per generated <code>.tres</code>; merge more in Neovim/Godot.</li><li><code>collision add</code> covers rectangle/circle/capsule; polygon shapes stay in the editor.</li><li>The curses TUIs are intentionally small helpers.</li><li>Input mapping supports basic keys first.</li><li>On Windows, curses may require a compatible terminal environment.</li></ul>
+<ul><li><code>.tscn</code> support is conservative and line-preserving, not a full Godot resource parser.</li><li>Native TileMap/TileSet editing is not implemented; use ASCII maps or Neovim/Godot for full tileset metadata.</li><li><code>collision add</code> covers rectangle/circle/capsule; polygon shapes stay in the editor.</li><li>The curses TUIs are intentionally small helpers.</li><li>Input mapping supports basic keys first.</li><li>On Windows, curses may require a compatible terminal environment.</li></ul>
 <h2>Design rule</h2><p>godot-cli should stay boring and scriptable. If a feature starts becoming a clone of Godot's editor, it probably belongs in Godot or the LSP instead.</p>
 """),
 }
