@@ -272,6 +272,240 @@ class GodotCliTest(unittest.TestCase):
         )
         self.assertEqual(gd.node_props(lines, "Player"), ["position = Vector2(1, 2)"])
 
+    def test_spriteframes_from_sheet(self) -> None:
+        Path("assets").mkdir()
+        Path("assets/player.png").write_bytes(b"png")
+        gd.cmd_scene_create(argparse.Namespace(path="Main", root="Node2D", force=False))
+        gd.cmd_node_add(
+            argparse.Namespace(
+                scene="Main", name="Anim", type="AnimatedSprite2D", parent="."
+            )
+        )
+
+        gd.cmd_spriteframes_from_sheet(
+            argparse.Namespace(
+                scene="Main",
+                node="Anim",
+                image="assets/player.png",
+                anim="walk",
+                frame="16x16",
+                count=3,
+                fps=12.0,
+                offset="4,8",
+                columns=2,
+                out=None,
+            )
+        )
+
+        scene = self.scene()
+        frames = Path("assets/player.spriteframes.tres").read_text()
+        self.assertIn(
+            '[ext_resource type="SpriteFrames" path="res://assets/player.spriteframes.tres" id="1"]',
+            scene,
+        )
+        self.assertIn('sprite_frames = ExtResource("1")', scene)
+        self.assertIn('[gd_resource type="SpriteFrames"', frames)
+        self.assertIn('path="res://assets/player.png"', frames)
+        self.assertIn('name": &"walk"', frames)
+        self.assertIn('speed": 12.0', frames)
+        self.assertIn("region = Rect2(4, 8, 16, 16)", frames)
+        self.assertIn("region = Rect2(20, 8, 16, 16)", frames)
+        self.assertIn("region = Rect2(4, 24, 16, 16)", frames)
+
+    def test_spriteframes_requires_animatedsprite2d(self) -> None:
+        Path("sprite.png").write_bytes(b"png")
+        gd.cmd_scene_create(argparse.Namespace(path="Main", root="Node2D", force=False))
+        with self.assertRaises(SystemExit) as err:
+            gd.cmd_spriteframes_from_sheet(
+                argparse.Namespace(
+                    scene="Main",
+                    node="Main",
+                    image="sprite.png",
+                    anim="idle",
+                    frame="16x16",
+                    count=1,
+                    fps=8.0,
+                    offset="0,0",
+                    columns=None,
+                    out=None,
+                )
+            )
+        self.assertIn("not AnimatedSprite2D", str(err.exception))
+
+    def test_asset_refs_and_check(self) -> None:
+        Path("assets").mkdir()
+        Path("assets/ok.png").write_bytes(b"png")
+        Path("Main.tscn").write_text(
+            "[gd_scene format=3]\n\n"
+            '[ext_resource type="Texture2D" path="res://assets/ok.png" id="1"]\n'
+            '[ext_resource type="Texture2D" path="res://assets/missing.png" id="2"]\n',
+            encoding="utf-8",
+        )
+
+        self.assertEqual(
+            gd.asset_refs(), ["res://assets/missing.png", "res://assets/ok.png"]
+        )
+        with self.assertRaises(SystemExit) as err:
+            gd.cmd_asset_check(argparse.Namespace())
+        self.assertEqual(err.exception.code, 1)
+        Path("assets/missing.png").write_bytes(b"png")
+        gd.cmd_asset_check(argparse.Namespace())
+
+    def test_gameplay_node_commands(self) -> None:
+        gd.cmd_scene_create(argparse.Namespace(path="Main", root="Node2D", force=False))
+        gd.cmd_scene_create(
+            argparse.Namespace(path="Enemy", root="Node2D", force=False)
+        )
+        Path("sfx.ogg").write_bytes(b"ogg")
+        gd.cmd_node_add(
+            argparse.Namespace(
+                scene="Main", name="Player", type="CharacterBody2D", parent="."
+            )
+        )
+
+        gd.cmd_scene_instance(
+            argparse.Namespace(
+                scene="Main", name="Mob", packed="Enemy.tscn", parent="."
+            )
+        )
+        gd.cmd_collision_add(
+            argparse.Namespace(
+                scene="Main", node="Player", shape="rectangle", size="8x16"
+            )
+        )
+        gd.cmd_collision_add(
+            argparse.Namespace(scene="Main", node="Player", shape="circle", size="4.5")
+        )
+        gd.cmd_collision_add(
+            argparse.Namespace(
+                scene="Main", node="Player", shape="capsule", size="4,12"
+            )
+        )
+        gd.cmd_camera_add(
+            argparse.Namespace(
+                scene="Main", name="Cam", parent=".", current=True, zoom=2.0
+            )
+        )
+        gd.cmd_audio_add(
+            argparse.Namespace(
+                scene="Main", name="Jump", file="sfx.ogg", parent="Player"
+            )
+        )
+
+        text = self.scene()
+        self.assertIn(
+            '[ext_resource type="PackedScene" path="res://Enemy.tscn" id="1"]', text
+        )
+        self.assertIn('[node name="Mob" parent="." instance=ExtResource("1")]', text)
+        self.assertIn(
+            '[sub_resource type="RectangleShape2D" id="RectangleShape2D_1"]', text
+        )
+        self.assertIn("size = Vector2(8, 16)", text)
+        self.assertIn("radius = 4.5", text)
+        self.assertIn("height = 12.0", text)
+        self.assertIn(
+            '[node name="Collision" type="CollisionShape2D" parent="Player"]', text
+        )
+        self.assertIn(
+            '[node name="Collision2" type="CollisionShape2D" parent="Player"]', text
+        )
+        self.assertIn(
+            '[node name="Collision3" type="CollisionShape2D" parent="Player"]', text
+        )
+        self.assertIn("current = true", text)
+        self.assertIn("zoom = Vector2(2.0, 2.0)", text)
+        self.assertIn('[ext_resource type="AudioStream" path="res://sfx.ogg"', text)
+        self.assertIn("stream = ExtResource(", text)
+        self.assertIn("load_steps=", text.splitlines()[0])
+
+    def test_group_and_signal_list(self) -> None:
+        gd.cmd_scene_create(argparse.Namespace(path="Main", root="Node2D", force=False))
+        gd.cmd_node_add(
+            argparse.Namespace(
+                scene="Main", name="Player", type="CharacterBody2D", parent="."
+            )
+        )
+        gd.cmd_signal_connect(
+            argparse.Namespace(
+                scene="Main",
+                signal="ready",
+                from_node="Player",
+                to_node="Player",
+                method="_on_ready",
+            )
+        )
+
+        gd.cmd_group_add(
+            argparse.Namespace(scene="Main", node="Player", group="enemies")
+        )
+        self.assertIn('groups=["enemies"]', self.scene())
+        gd.cmd_group_add(
+            argparse.Namespace(scene="Main", node="Player", group="controllable")
+        )
+        self.assertIn('groups=["enemies", "controllable"]', self.scene())
+        gd.cmd_group_remove(
+            argparse.Namespace(scene="Main", node="Player", group="enemies")
+        )
+        self.assertIn('groups=["controllable"]', self.scene())
+
+        lines = gd.read_lines(Path("Main.tscn"))
+        node = gd.find_node(lines, "Player")
+        self.assertEqual(gd.node_groups(lines, node), ["controllable"])
+
+        import io
+        from contextlib import redirect_stdout
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            gd.cmd_signal_list(argparse.Namespace(scene="Main"))
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            gd.cmd_signal_list(argparse.Namespace(scene="Main"))
+        self.assertIn("Player.ready -> Player:_on_ready", buf.getvalue())
+
+    def test_templates_and_productivity(self) -> None:
+        gd.cmd_input_preset(argparse.Namespace(name="platformer"))
+        gd.cmd_project_scaffold(argparse.Namespace())
+        for d in ("scenes", "scripts", "assets", "levels"):
+            self.assertTrue(Path(d).is_dir())
+        project = Path("project.godot")
+        project.write_text("[input]\n")
+        gd.cmd_input_preset(argparse.Namespace(name="topdown"))
+        text = project.read_text()
+        for action in ("move_up", "move_down", "move_left", "move_right"):
+            self.assertIn(action, text)
+
+        gd.cmd_script_create(
+            argparse.Namespace(
+                path="scripts/p.gd", template="platformer2d", extends=None, force=False
+            )
+        )
+        self.assertIn("move_and_slide()", Path("scripts/p.gd").read_text())
+
+    def test_template_platformer_and_doctor_docs(self) -> None:
+        import io
+        from contextlib import redirect_stdout
+
+        gd.cmd_template(argparse.Namespace(name="platformer"))
+        gd.cmd_check(argparse.Namespace())
+        scene = Path("Main.tscn").read_text()
+        self.assertIn('[node name="Player" type="CharacterBody2D" parent="."]', scene)
+        self.assertIn("Camera2D", scene)
+        self.assertIn("script = ExtResource", scene)
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            gd.cmd_doctor(argparse.Namespace())
+        report = buf.getvalue()
+        self.assertIn("ok: main_scene", report)
+        self.assertIn("godot-scene-lsp", report)
+        self.assertIn("luisfer-cli/godot-scene-lsp", report)
+
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            gd.cmd_docs(argparse.Namespace(cls="CharacterBody2D", open=False))
+        self.assertIn("class_characterbody2d.html", buf.getvalue())
+
     def test_map_ascii_new_check_compile(self) -> None:
         gd.cmd_map_new(
             argparse.Namespace(path="Level1", width=3, height=2, fill=".", force=False)

@@ -17,11 +17,63 @@ from pathlib import Path
 HEADER_RE = re.compile(r"^\[([A-Za-z_]+)(?:\s+(.*))?\]$")
 ATTR_RE = re.compile(r'(\w+)=(?:"([^"]*)"|([^\s]+))')
 PROP_RE = re.compile(r"^([^=]+?)\s*=\s*(.*)$")
+RES_RE = re.compile(r"res://[^\s\"'\])},]+")
 
 
 def res(path: str | Path) -> str:
     p = Path(path).as_posix()
     return p if p.startswith("res://") else "res://" + p.lstrip("/")
+
+
+SCRIPT_TEMPLATES = {
+    "platformer2d": """extends CharacterBody2D
+
+const SPEED := 120.0
+const JUMP_VELOCITY := -300.0
+
+func _physics_process(delta: float) -> void:
+	if not is_on_floor():
+		velocity += get_gravity() * delta
+	if Input.is_action_just_pressed("jump") and is_on_floor():
+		velocity.y = JUMP_VELOCITY
+	velocity.x = Input.get_axis("move_left", "move_right") * SPEED
+	move_and_slide()
+""",
+    "topdown2d": """extends CharacterBody2D
+
+const SPEED := 150.0
+
+func _physics_process(_delta: float) -> void:
+	velocity = Input.get_vector("move_left", "move_right", "move_up", "move_down") * SPEED
+	move_and_slide()
+""",
+    "autoload-state": """extends Node
+
+var score := 0
+var lives := 3
+
+func add_score(points: int) -> void:
+	score += points
+""",
+    "menu": """extends Control
+
+func _ready() -> void:
+	$Menu/Start.pressed.connect(_on_start)
+
+func _on_start() -> void:
+	print("start")
+""",
+}
+
+INPUT_PRESETS = {
+    "platformer": {"move_left": "A", "move_right": "D", "jump": "Space"},
+    "topdown": {
+        "move_up": "W",
+        "move_down": "S",
+        "move_left": "A",
+        "move_right": "D",
+    },
+}
 
 
 def local(path: str) -> Path:
@@ -212,6 +264,151 @@ def key_event(name: str) -> str:
     return f'{{"deadzone":0.5,"events":[Object(InputEventKey,"keycode":{code})]}}'
 
 
+GAME_TEMPLATES: dict[str, list[tuple[str, tuple]]] = {
+    "platformer": [
+        ("project_init", ("MyGame",)),
+        ("scene_create", ("Main", "Node2D")),
+        ("scene_main", ("Main",)),
+        ("node_add", ("Main", "Player", "CharacterBody2D", ".")),
+        ("collision_add", ("Main", "Player", "rectangle", "16x24")),
+        ("camera_add", ("Main", "Camera", "Player", True, None)),
+        ("script_create", ("scripts/player.gd", "platformer2d")),
+        ("script_attach", ("Main", "Player", "scripts/player.gd")),
+        ("input_preset", ("platformer",)),
+        ("project_scaffold", ()),
+    ],
+    "topdown": [
+        ("project_init", ("MyGame",)),
+        ("scene_create", ("Main", "Node2D")),
+        ("scene_main", ("Main",)),
+        ("node_add", ("Main", "Player", "CharacterBody2D", ".")),
+        ("collision_add", ("Main", "Player", "circle", "8")),
+        ("camera_add", ("Main", "Camera", "Player", True, 2.0)),
+        ("script_create", ("scripts/player.gd", "topdown2d")),
+        ("script_attach", ("Main", "Player", "scripts/player.gd")),
+        ("input_preset", ("topdown",)),
+        ("project_scaffold", ()),
+    ],
+    "menu": [
+        ("project_init", ("MyGame",)),
+        ("scene_create", ("Main", "Control")),
+        ("scene_main", ("Main",)),
+        ("node_add", ("Main", "Menu", "VBoxContainer", ".")),
+        ("node_add", ("Main", "Start", "Button", "Menu")),
+        ("script_create", ("scripts/menu.gd", "menu")),
+        ("script_attach", ("Main", "Main", "scripts/menu.gd")),
+        ("project_scaffold", ()),
+    ],
+}
+
+
+def cmd_input_preset(args: argparse.Namespace) -> None:
+    if args.name not in INPUT_PRESETS:
+        raise SystemExit(f"unknown preset: {args.name}; use platformer|topdown")
+    for action, key in INPUT_PRESETS[args.name].items():
+        set_section_value(Path("project.godot"), "input", action, key_event(key))
+        print(f"{action} -> {key}")
+
+
+def cmd_project_scaffold(_: argparse.Namespace) -> None:
+    for d in ("scenes", "scripts", "assets", "levels"):
+        Path(d).mkdir(parents=True, exist_ok=True)
+        print(d)
+
+
+def cmd_template(args: argparse.Namespace) -> None:
+    steps = GAME_TEMPLATES[args.name]
+    for cmd, a in steps:
+        if cmd == "project_init":
+            cmd_project_init(argparse.Namespace(name=a[0], force=True))
+        elif cmd == "scene_create":
+            cmd_scene_create(argparse.Namespace(path=a[0], root=a[1], force=True))
+        elif cmd == "scene_main":
+            cmd_scene_main(argparse.Namespace(scene=a[0]))
+        elif cmd == "node_add":
+            cmd_node_add(
+                argparse.Namespace(scene=a[0], name=a[1], type=a[2], parent=a[3])
+            )
+        elif cmd == "collision_add":
+            cmd_collision_add(
+                argparse.Namespace(scene=a[0], node=a[1], shape=a[2], size=a[3])
+            )
+        elif cmd == "camera_add":
+            cmd_camera_add(
+                argparse.Namespace(
+                    scene=a[0], name=a[1], parent=a[2], current=a[3], zoom=a[4]
+                )
+            )
+        elif cmd == "script_create":
+            cmd_script_create(
+                argparse.Namespace(path=a[0], template=a[1], extends=None, force=True)
+            )
+        elif cmd == "script_attach":
+            cmd_script_attach(argparse.Namespace(scene=a[0], node=a[1], script=a[2]))
+        elif cmd == "input_preset":
+            cmd_input_preset(argparse.Namespace(name=a[0]))
+        elif cmd == "project_scaffold":
+            cmd_project_scaffold(argparse.Namespace())
+    print(f"template {args.name} ready")
+
+
+def cmd_doctor(_: argparse.Namespace) -> None:
+    problems = 0
+    if Path("project.godot").exists():
+        print("ok: project.godot")
+    else:
+        print("error: project.godot missing (gd project init <name>)")
+        problems += 1
+    godot = shutil.which("godot")
+    print(
+        f"ok: godot found at {godot}"
+        if godot
+        else "warn: godot not in PATH; pass --godot or install it"
+    )
+    try:
+        main = section_items(Path("project.godot"), "application").get("run/main_scene")
+    except Exception:
+        main = None
+    if main:
+        path = local(main.strip('"'))
+        if path.exists():
+            print(f"ok: main_scene {main}")
+        else:
+            print(f"error: main_scene does not exist: {main}")
+            problems += 1
+    else:
+        print("warn: no main_scene set (gd scene main <scene>)")
+    missing = [r for r in asset_refs() if not local(r).exists()]
+    if missing:
+        problems += 1
+        print(f"error: {len(missing)} missing resource(s): " + ", ".join(missing))
+    else:
+        print("ok: resources")
+    if Path("export_presets.cfg").exists():
+        print(f"ok: {len(export_presets())} export preset(s)")
+    else:
+        print("warn: no export_presets.cfg")
+    print(
+        "tip: install godot-scene-lsp for .tscn/.gd completion in Neovim (github.com/luisfer-cli/godot-scene-lsp)"
+    )
+    if problems:
+        raise SystemExit(1)
+
+
+def cmd_docs(args: argparse.Namespace) -> None:
+    url = (
+        f"https://docs.godotengine.org/en/stable/classes/class_{args.cls.lower()}.html"
+    )
+    print(url)
+    print(
+        "tip: godot-scene-lsp completes Godot classes in Neovim (github.com/luisfer-cli/godot-scene-lsp)"
+    )
+    if getattr(args, "open", False):
+        import webbrowser
+
+        webbrowser.open(url)
+
+
 def cmd_project_init(args: argparse.Namespace) -> None:
     path = Path("project.godot")
     if path.exists() and not args.force:
@@ -385,9 +582,14 @@ def cmd_script_create(args: argparse.Namespace) -> None:
     if path.exists() and not args.force:
         raise SystemExit(f"already exists: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        f"extends {args.extends}\n\nfunc _ready() -> void:\n\tpass\n", encoding="utf-8"
-    )
+    template = getattr(args, "template", None)
+    if template:
+        if template not in SCRIPT_TEMPLATES:
+            raise SystemExit(f"unknown template: {template}")
+        content = SCRIPT_TEMPLATES[template]
+    else:
+        content = f"extends {args.extends}\n\nfunc _ready() -> void:\n\tpass\n"
+    path.write_text(content, encoding="utf-8")
     print(path)
 
 
@@ -398,6 +600,114 @@ def cmd_script_list(_: argparse.Namespace) -> None:
 
 def next_ext_id(lines: list[str]) -> str:
     return str(sum(1 for b in parse_scene(lines) if b.kind == "ext_resource") + 1)
+
+
+def add_ext_resource(lines: list[str], rtype: str, path: str) -> str:
+    existing = next(
+        (
+            b.attrs["id"]
+            for b in parse_scene(lines)
+            if b.kind == "ext_resource"
+            and b.attrs.get("path") == path
+            and "id" in b.attrs
+        ),
+        None,
+    )
+    if existing:
+        return existing
+    ext_id = next_ext_id(lines)
+    insert_at = next(
+        (i for i, line in enumerate(lines) if line.startswith("[node ")), len(lines)
+    )
+    lines.insert(
+        insert_at, f'[ext_resource type="{rtype}" path="{path}" id="{ext_id}"]'
+    )
+    if insert_at + 1 < len(lines) and lines[insert_at + 1] != "":
+        lines.insert(insert_at + 1, "")
+    return ext_id
+
+
+def fix_load_steps(lines: list[str]) -> None:
+    if not lines or not lines[0].startswith("[gd_scene"):
+        return
+    steps = (
+        sum(1 for b in parse_scene(lines) if b.kind in ("ext_resource", "sub_resource"))
+        + 1
+    )
+    if re.search(r"load_steps=\d+", lines[0]):
+        lines[0] = re.sub(r"load_steps=\d+", f"load_steps={steps}", lines[0])
+    else:
+        lines[0] = lines[0][:-1] + f" load_steps={steps}]"
+
+
+def node_parent_attr(lines: list[str], node: dict[str, str]) -> str:
+    root = nodes(lines)[0]
+    return (
+        "."
+        if node["name"] == root["name"] and not node["parent"]
+        else node_full_path(node)
+    )
+
+
+def parse_size(text: str) -> tuple[int, int]:
+    try:
+        left, right = text.lower().split("x", 1)
+        return int(left), int(right)
+    except ValueError as exc:
+        raise SystemExit(f"expected WxH, got: {text}") from exc
+
+
+def parse_xy(text: str) -> tuple[int, int]:
+    try:
+        left, right = text.split(",", 1)
+        return int(left), int(right)
+    except ValueError as exc:
+        raise SystemExit(f"expected X,Y, got: {text}") from exc
+
+
+def write_spriteframes(
+    path: Path,
+    image: str,
+    anim: str,
+    frame: tuple[int, int],
+    count: int,
+    fps: float,
+    offset: tuple[int, int],
+    columns: int,
+) -> None:
+    if count < 1:
+        raise SystemExit("count must be >= 1")
+    if fps <= 0:
+        raise SystemExit("fps must be > 0")
+    width, height = frame
+    ox, oy = offset
+    lines = [
+        f'[gd_resource type="SpriteFrames" load_steps={count + 2} format=3]',
+        "",
+        f'[ext_resource type="Texture2D" path="{res(image)}" id="1"]',
+    ]
+    frames = []
+    for i in range(count):
+        col = i % columns
+        row = i // columns
+        sub_id = f"AtlasTexture_{i + 1}"
+        frames.append(sub_id)
+        lines += [
+            "",
+            f'[sub_resource type="AtlasTexture" id="{sub_id}"]',
+            'atlas = ExtResource("1")',
+            f"region = Rect2({ox + col * width}, {oy + row * height}, {width}, {height})",
+        ]
+    frame_items = ", ".join(
+        f'{{"duration": 1.0, "texture": SubResource("{sub_id}")}}' for sub_id in frames
+    )
+    lines += [
+        "",
+        "[resource]",
+        f'animations = [{{"frames": [{frame_items}], "loop": true, "name": &"{anim}", "speed": {fps}}}]',
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_lines(path, lines)
 
 
 def cmd_script_attach(args: argparse.Namespace) -> None:
@@ -443,6 +753,260 @@ def cmd_script_attach(args: argparse.Namespace) -> None:
         lines.insert(line_i + 1, prop)
     write_lines(path, lines)
     print(f"{args.node} -> {script}")
+
+
+def cmd_spriteframes_from_sheet(args: argparse.Namespace) -> None:
+    scene = scene_path(args.scene)
+    lines = read_lines(scene)
+    target = find_node(lines, args.node)
+    if target["type"] != "AnimatedSprite2D":
+        raise SystemExit(f"node is not AnimatedSprite2D: {args.node}")
+    image_path = local(args.image)
+    if not image_path.exists():
+        raise SystemExit(f"image not found: {args.image}")
+
+    frame = parse_size(args.frame)
+    offset = parse_xy(args.offset)
+    out = (
+        Path(args.out)
+        if args.out
+        else Path(args.image).with_suffix(".spriteframes.tres")
+    )
+    columns = args.columns or args.count
+    write_spriteframes(
+        out, args.image, args.anim, frame, args.count, args.fps, offset, columns
+    )
+
+    resource = res(out)
+    existing = next(
+        (
+            b.attrs["id"]
+            for b in parse_scene(lines)
+            if b.kind == "ext_resource"
+            and b.attrs.get("path") == resource
+            and "id" in b.attrs
+        ),
+        None,
+    )
+    ext_id = existing or next_ext_id(lines)
+    inserted = 0
+    if not existing:
+        insert_at = next(
+            (i for i, line in enumerate(lines) if line.startswith("[node ")), len(lines)
+        )
+        lines.insert(
+            insert_at,
+            f'[ext_resource type="SpriteFrames" path="{resource}" id="{ext_id}"]',
+        )
+        inserted = 1
+        if insert_at + 1 < len(lines) and lines[insert_at + 1] != "":
+            lines.insert(insert_at + 1, "")
+            inserted = 2
+
+    line_i = node_line(target) + inserted
+    _, end = node_block(lines, line_i)
+    prop = f'sprite_frames = ExtResource("{ext_id}")'
+    if (hit := prop_line(lines, line_i, end, "sprite_frames")) is None:
+        lines.insert(end, prop)
+    else:
+        lines[hit] = prop
+    write_lines(scene, lines)
+    print(f"{args.node} -> {resource}:{args.anim}")
+
+
+def project_files() -> list[Path]:
+    suffixes = {".tscn", ".tres", ".gd", ".godot"}
+    return [
+        p
+        for p in Path(".").rglob("*")
+        if p.is_file()
+        and p.suffix in suffixes
+        and ".git" not in p.parts
+        and "dist" not in p.parts
+    ]
+
+
+def asset_refs() -> list[str]:
+    refs: set[str] = set()
+    for path in project_files():
+        refs.update(RES_RE.findall(path.read_text(encoding="utf-8", errors="ignore")))
+    return sorted(refs)
+
+
+def cmd_asset_list(_: argparse.Namespace) -> None:
+    for ref in asset_refs():
+        print(ref)
+
+
+def cmd_asset_check(_: argparse.Namespace) -> None:
+    missing = [ref for ref in asset_refs() if not local(ref).exists()]
+    if missing:
+        print("\n".join(f"missing: {ref}" for ref in missing))
+        raise SystemExit(1)
+    print("OK")
+
+
+def cmd_scene_instance(args: argparse.Namespace) -> None:
+    path = scene_path(args.scene)
+    lines = read_lines(path)
+    packed = local(res(args.packed))
+    if not packed.exists():
+        raise SystemExit(f"scene not found: {args.packed}")
+    ext_id = add_ext_resource(lines, "PackedScene", res(args.packed))
+    parent = args.parent or "."
+    lines += [
+        "",
+        f'[node name="{args.name}" parent="{parent}" instance=ExtResource("{ext_id}")]',
+    ]
+    fix_load_steps(lines)
+    write_lines(path, lines)
+    print(f"{args.name} -> {res(args.packed)}")
+
+
+def parse_float(text: str) -> float:
+    try:
+        return float(text)
+    except ValueError as exc:
+        raise SystemExit(f"expected number, got: {text}") from exc
+
+
+def cmd_collision_add(args: argparse.Namespace) -> None:
+    shapes = {
+        "rectangle": "RectangleShape2D",
+        "circle": "CircleShape2D",
+        "capsule": "CapsuleShape2D",
+    }
+    if args.shape not in shapes:
+        raise SystemExit(f"unknown shape: {args.shape}; use rectangle|circle|capsule")
+    path = scene_path(args.scene)
+    lines = read_lines(path)
+    node = find_node(lines, args.node)
+    kind = shapes[args.shape]
+    if args.shape == "rectangle":
+        w, h = parse_size(args.size)
+        props = [f"size = Vector2({w}, {h})"]
+    elif args.shape == "circle":
+        props = [f"radius = {parse_float(args.size)}"]
+    else:
+        r, h = args.size.split(",", 1)
+        props = [f"radius = {parse_float(r)}", f"height = {parse_float(h)}"]
+    subs = sum(1 for b in parse_scene(lines) if b.kind == "sub_resource")
+    sid = f"{kind}_{subs + 1}"
+    insert_at = next(
+        (i for i, line in enumerate(lines) if line.startswith("[node ")), len(lines)
+    )
+    lines[insert_at:insert_at] = [
+        f'[sub_resource type="{kind}" id="{sid}"]',
+        *props,
+        "",
+    ]
+    parent = node_parent_attr(lines, node)
+    count = sum(
+        1
+        for x in nodes(lines)
+        if x["parent"] == parent and x["type"] == "CollisionShape2D"
+    )
+    name = "Collision" if count == 0 else f"Collision{count + 1}"
+    lines += [
+        "",
+        f'[node name="{name}" type="CollisionShape2D" parent="{parent}"]',
+        f'shape = SubResource("{sid}")',
+    ]
+    fix_load_steps(lines)
+    write_lines(path, lines)
+    print(f"{parent}/{name} {kind}")
+
+
+def cmd_camera_add(args: argparse.Namespace) -> None:
+    path = scene_path(args.scene)
+    lines = read_lines(path)
+    props = []
+    if args.current:
+        props.append("current = true")
+    if args.zoom is not None:
+        props.append(f"zoom = Vector2({args.zoom}, {args.zoom})")
+    parent = args.parent or "."
+    lines += [
+        "",
+        f'[node name="{args.name}" type="Camera2D" parent="{parent}"]',
+        *props,
+    ]
+    write_lines(path, lines)
+    print(f"{parent}/{args.name}")
+
+
+def cmd_audio_add(args: argparse.Namespace) -> None:
+    path = scene_path(args.scene)
+    lines = read_lines(path)
+    audio = local(res(args.file))
+    if not audio.exists():
+        raise SystemExit(f"audio file not found: {args.file}")
+    ext_id = add_ext_resource(lines, "AudioStream", res(args.file))
+    parent = args.parent or "."
+    lines += [
+        "",
+        f'[node name="{args.name}" type="AudioStreamPlayer" parent="{parent}"]',
+        f'stream = ExtResource("{ext_id}")',
+    ]
+    fix_load_steps(lines)
+    write_lines(path, lines)
+    print(f"{parent}/{args.name} -> {res(args.file)}")
+
+
+def node_groups(lines: list[str], node: dict[str, str]) -> list[str]:
+    line = lines[node_line(node)]
+    m = re.search(r"groups=\[(.*?)\]", line)
+    if not m:
+        return []
+    return [g.strip().strip('"') for g in m.group(1).split(",") if g.strip()]
+
+
+def set_node_groups(lines: list[str], node: dict[str, str], groups: list[str]) -> None:
+    i = node_line(node)
+    head = re.sub(r"\s*groups=\[[^\]]*\]", "", lines[i][: lines[i].rindex("]")])
+    if groups:
+        head += " groups=[" + ", ".join(f'"{g}"' for g in groups) + "]"
+    lines[i] = head + "]"
+
+
+def cmd_group_add(args: argparse.Namespace) -> None:
+    path = scene_path(args.scene)
+    lines = read_lines(path)
+    node = find_node(lines, args.node)
+    groups = node_groups(lines, node)
+    if args.group not in groups:
+        groups.append(args.group)
+        set_node_groups(lines, node, groups)
+        write_lines(path, lines)
+    print(f"{node_full_path(node)} -> {', '.join(groups)}")
+
+
+def cmd_group_list(args: argparse.Namespace) -> None:
+    lines = read_lines(scene_path(args.scene))
+    if args.node:
+        print(" ".join(node_groups(lines, find_node(lines, args.node))))
+        return
+    for n in nodes(lines):
+        groups = node_groups(lines, n)
+        if groups:
+            print(f"{node_full_path(n)}: {', '.join(groups)}")
+
+
+def cmd_group_remove(args: argparse.Namespace) -> None:
+    path = scene_path(args.scene)
+    lines = read_lines(path)
+    node = find_node(lines, args.node)
+    groups = [g for g in node_groups(lines, node) if g != args.group]
+    set_node_groups(lines, node, groups)
+    write_lines(path, lines)
+    print(f"{node_full_path(node)} -> {', '.join(groups) or '(no groups)'}")
+
+
+def cmd_signal_list(args: argparse.Namespace) -> None:
+    for line in read_lines(scene_path(args.scene)):
+        if (m := HEADER_RE.match(line)) and m.group(1) == "connection":
+            a = parse_attrs(m.group(2) or "")
+            print(f"{a['from']}.{a['signal']} -> {a['to']}:{a['method']}")
 
 
 def cmd_signal_connect(args: argparse.Namespace) -> None:
@@ -885,6 +1449,7 @@ def parser() -> argparse.ArgumentParser:
     init.add_argument("--force", action="store_true")
     init.set_defaults(func=cmd_project_init)
     pi_sub.add_parser("info").set_defaults(func=cmd_project_info)
+    pi_sub.add_parser("scaffold").set_defaults(func=cmd_project_scaffold)
     setting = pi_sub.add_parser("setting")
     setting_sub = setting.add_subparsers(required=True)
     sg = setting_sub.add_parser("get")
@@ -909,6 +1474,12 @@ def parser() -> argparse.ArgumentParser:
     edit_scene = sc_sub.add_parser("edit")
     edit_scene.add_argument("scene")
     edit_scene.set_defaults(func=cmd_scene_edit)
+    inst = sc_sub.add_parser("instance")
+    inst.add_argument("scene")
+    inst.add_argument("name")
+    inst.add_argument("packed")
+    inst.add_argument("--parent", default=".")
+    inst.set_defaults(func=cmd_scene_instance)
 
     n = sub.add_parser("node")
     n_sub = n.add_subparsers(required=True)
@@ -952,6 +1523,7 @@ def parser() -> argparse.ArgumentParser:
     cs = s_sub.add_parser("create")
     cs.add_argument("path")
     cs.add_argument("--extends", default="Node")
+    cs.add_argument("--template", choices=sorted(SCRIPT_TEMPLATES))
     cs.add_argument("--force", action="store_true")
     cs.set_defaults(func=cmd_script_create)
     at = s_sub.add_parser("attach")
@@ -960,6 +1532,26 @@ def parser() -> argparse.ArgumentParser:
     at.add_argument("script")
     at.set_defaults(func=cmd_script_attach)
     s_sub.add_parser("list").set_defaults(func=cmd_script_list)
+
+    sf = sub.add_parser("spriteframes")
+    sf_sub = sf.add_subparsers(required=True)
+    sheet = sf_sub.add_parser("from-sheet")
+    sheet.add_argument("scene")
+    sheet.add_argument("node")
+    sheet.add_argument("image")
+    sheet.add_argument("--anim", required=True)
+    sheet.add_argument("--frame", required=True, help="frame size, e.g. 16x16")
+    sheet.add_argument("--count", type=int, required=True)
+    sheet.add_argument("--fps", type=float, default=8.0)
+    sheet.add_argument("--offset", default="0,0")
+    sheet.add_argument("--columns", type=int)
+    sheet.add_argument("--out")
+    sheet.set_defaults(func=cmd_spriteframes_from_sheet)
+
+    asset = sub.add_parser("asset")
+    asset_sub = asset.add_subparsers(required=True)
+    asset_sub.add_parser("list").set_defaults(func=cmd_asset_list)
+    asset_sub.add_parser("check").set_defaults(func=cmd_asset_check)
 
     sig = sub.add_parser("signal")
     sig_sub = sig.add_subparsers(required=True)
@@ -970,6 +1562,54 @@ def parser() -> argparse.ArgumentParser:
     co.add_argument("to_node")
     co.add_argument("method")
     co.set_defaults(func=cmd_signal_connect)
+    sl = sig_sub.add_parser("list")
+    sl.add_argument("scene")
+    sl.set_defaults(func=cmd_signal_list)
+
+    col = sub.add_parser("collision")
+    col_sub = col.add_subparsers(required=True)
+    ca = col_sub.add_parser("add")
+    ca.add_argument("scene")
+    ca.add_argument("node")
+    ca.add_argument("shape", choices=["rectangle", "circle", "capsule"])
+    ca.add_argument("size", help="WxH | radius | radius,height")
+    ca.set_defaults(func=cmd_collision_add)
+
+    cam = sub.add_parser("camera")
+    cam_sub = cam.add_subparsers(required=True)
+    cma = cam_sub.add_parser("add")
+    cma.add_argument("scene")
+    cma.add_argument("name")
+    cma.add_argument("--parent", default=".")
+    cma.add_argument("--current", action="store_true")
+    cma.add_argument("--zoom", type=float)
+    cma.set_defaults(func=cmd_camera_add)
+
+    aud = sub.add_parser("audio")
+    aud_sub = aud.add_subparsers(required=True)
+    ada = aud_sub.add_parser("add")
+    ada.add_argument("scene")
+    ada.add_argument("name")
+    ada.add_argument("file")
+    ada.add_argument("--parent", default=".")
+    ada.set_defaults(func=cmd_audio_add)
+
+    grp = sub.add_parser("group")
+    grp_sub = grp.add_subparsers(required=True)
+    ga = grp_sub.add_parser("add")
+    ga.add_argument("scene")
+    ga.add_argument("node")
+    ga.add_argument("group")
+    ga.set_defaults(func=cmd_group_add)
+    gl = grp_sub.add_parser("list")
+    gl.add_argument("scene")
+    gl.add_argument("node", nargs="?")
+    gl.set_defaults(func=cmd_group_list)
+    gr = grp_sub.add_parser("remove")
+    gr.add_argument("scene")
+    gr.add_argument("node")
+    gr.add_argument("group")
+    gr.set_defaults(func=cmd_group_remove)
 
     inp = sub.add_parser("input")
     inp_sub = inp.add_subparsers(required=True)
@@ -977,6 +1617,9 @@ def parser() -> argparse.ArgumentParser:
     ia.add_argument("action")
     ia.add_argument("key")
     ia.set_defaults(func=cmd_input_add)
+    ip = inp_sub.add_parser("preset")
+    ip.add_argument("name", choices=sorted(INPUT_PRESETS))
+    ip.set_defaults(func=cmd_input_preset)
     inp_sub.add_parser("list").set_defaults(func=cmd_input_list)
     ir = inp_sub.add_parser("remove")
     ir.add_argument("action")
@@ -1021,6 +1664,17 @@ def parser() -> argparse.ArgumentParser:
     tile_edit.add_argument("scene")
     tile_edit.add_argument("node")
     tile_edit.set_defaults(func=cmd_tilemap_edit)
+
+    tmpl = sub.add_parser("template")
+    tmpl.add_argument("name", choices=sorted(GAME_TEMPLATES))
+    tmpl.set_defaults(func=cmd_template)
+
+    sub.add_parser("doctor").set_defaults(func=cmd_doctor)
+
+    docs = sub.add_parser("docs")
+    docs.add_argument("cls")
+    docs.add_argument("--open", action="store_true")
+    docs.set_defaults(func=cmd_docs)
 
     t = sub.add_parser("tree")
     t.add_argument("scene")
